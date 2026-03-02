@@ -1,338 +1,146 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Zargon Production Tracker</title>
+<script type="module">
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { 
+  getFirestore,
+  collection,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  doc,
+  updateDoc
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
-body{background:linear-gradient(135deg,#0f172a,#1e293b);color:white}
+/* 🔥 তোমার Firebase Config */
+const firebaseConfig = {
+  apiKey: "AIzaSyCkrtNYqQl2CXtZEiANExp18nBElaea67k",
+  authDomain: "zargon-tracker-20750.firebaseapp.com",
+  projectId: "zargon-tracker-20750",
+  storageBucket: "zargon-tracker-20750.firebasestorage.app",
+  messagingSenderId: "1037133669383",
+  appId: "1:1037133669383:web:ad2582e5d64d2e15f8f6a2",
+  measurementId: "G-MKTKRWV4DB"
+};
 
-/* Login */
-.login{
-height:100vh;
-display:flex;
-justify-content:center;
-align-items:center;
-}
-.box{
-background:#1e293b;
-padding:40px;
-border-radius:20px;
-width:350px;
-text-align:center;
-box-shadow:0 0 50px rgba(0,0,0,.6);
-}
-.box input{
-width:100%;
-padding:10px;
-margin:10px 0;
-border:none;
-border-radius:8px;
-}
-.box button{
-width:100%;
-padding:10px;
-background:#38bdf8;
-border:none;
-border-radius:8px;
-font-weight:bold;
-cursor:pointer;
-}
-.box button:hover{
-background:#0ea5e9;
-}
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-/* Main */
-.main{display:none;padding:30px}
-.logo{text-align:center}
-.logo img{width:120px;margin-bottom:10px}
-h1{text-align:center;color:#38bdf8}
-.owner{text-align:center;margin-bottom:20px;opacity:.8}
+let editId = null;
 
-/* Logout Button */
-.logout-area{
-text-align:right;
-margin-bottom:15px;
-}
-.logout-btn{
-background:#dc2626;
-padding:8px 15px;
-border:none;
-border-radius:8px;
-color:white;
-font-weight:bold;
-cursor:pointer;
-transition:.3s;
-}
-.logout-btn:hover{
-background:#b91c1c;
-}
-
-.controls{
-display:flex;
-flex-wrap:wrap;
-gap:10px;
-margin-bottom:15px;
-}
-
-input,select{
-padding:8px;
-border:none;
-border-radius:6px;
-}
-
-button{
-background:#38bdf8;
-border:none;
-padding:8px 12px;
-border-radius:6px;
-cursor:pointer;
-font-weight:bold;
-}
-
-table{
-width:100%;
-border-collapse:collapse;
-background:#1e293b;
-margin-top:10px;
-}
-
-th,td{
-border:1px solid #334155;
-padding:8px;
-text-align:center;
-}
-
-th{background:#334155}
-
-.done{background:#16a34a;padding:3px 10px;border-radius:15px}
-.pending{background:#dc2626;padding:3px 10px;border-radius:15px}
-
-.action-btn{
-padding:4px 8px;
-margin:2px;
-border-radius:5px;
-cursor:pointer;
-}
-
-.edit{background:#facc15;color:black}
-.delete{background:#dc2626}
-
-footer{
-text-align:center;
-margin-top:30px;
-font-size:12px;
-opacity:.7;
-}
-</style>
-</head>
-<body>
-
-<!-- LOGIN PAGE -->
-<div class="login" id="loginPage">
-<div class="box">
-<h2>Welcome Back</h2>
-<p>Sign in to Zargon Production Tracker</p>
-<p style="font-size:12px">developed by Md. Hamim Hossain</p>
-
-<input type="text" id="user" placeholder="Username">
-<input type="password" id="pass" placeholder="Password">
-<button onclick="login()">Sign In</button>
-
-</div>
-</div>
-
-<!-- MAIN SYSTEM -->
-<div class="main" id="main">
-
-<div class="logout-area">
-<button class="logout-btn" onclick="logout()">Logout</button>
-</div>
-
-<h1>Zargon Production Tracker</h1>
-<div class="owner">Md. Hamim Hossain (Visual Artist Zargon)</div>
-
-<div class="controls">
-<input type="date" id="date">
-<input type="text" id="cycle" placeholder="Cycle (P1)">
-<input type="text" id="code" placeholder="Product Code">
-<input type="number" id="raw" placeholder="Raw">
-<input type="number" id="edit">
-<select id="editStatus">
-<option>Done</option>
-<option>Pending</option>
-</select>
-<select id="adsStatus">
-<option>Done</option>
-<option>Pending</option>
-</select>
-<button id="addBtn" onclick="addData()">Add</button>
-<button onclick="exportExcel()">Export Excel</button>
-<input type="text" id="search" placeholder="Search Code" onkeyup="searchData()">
-</div>
-
-<table>
-<thead>
-<tr>
-<th>#</th>
-<th>Date</th>
-<th>Cycle</th>
-<th>Code</th>
-<th>Raw</th>
-<th>Edit</th>
-<th>Edit Status</th>
-<th>Ads Status</th>
-<th>Action</th>
-</tr>
-</thead>
-<tbody id="tbody"></tbody>
-</table>
-
-</div>
-
-<script>
-let data = JSON.parse(localStorage.getItem("zargonData")) || [];
-let editIndex = null;
+/* ================= LOGIN ================= */
 
 window.onload = function(){
-if(localStorage.getItem("loggedIn") === "true"){
-showMain();
-}
+  if(localStorage.getItem("loggedIn")==="true"){
+    showMain();
+  }
 }
 
 function login(){
-if(user.value==="admin" && pass.value==="zargon123"){
-localStorage.setItem("loggedIn","true");
-showMain();
-}else{
-alert("Wrong Login Info");
-}
+  if(user.value==="admin" && pass.value==="zargon123"){
+    localStorage.setItem("loggedIn","true");
+    showMain();
+  }else{
+    alert("Wrong Login Info");
+  }
 }
 
 function logout(){
-localStorage.removeItem("loggedIn");
-main.style.display="none";
-loginPage.style.display="flex";
+  localStorage.removeItem("loggedIn");
+  main.style.display="none";
+  loginPage.style.display="flex";
 }
 
 function showMain(){
-loginPage.style.display="none";
-main.style.display="block";
-render();
+  loginPage.style.display="none";
+  main.style.display="block";
 }
 
-function addData(){
+/* ================= REALTIME LOAD ================= */
 
-if(!date.value || !cycle.value || !code.value){
-alert("Please fill required fields");
-return;
-}
+const tbody = document.getElementById("tbody");
 
-let item={
-date:date.value,
-cycle:cycle.value,
-code:code.value,
-raw:raw.value,
-edit:edit.value,
-editStatus:editStatus.value,
-adsStatus:adsStatus.value
-};
+onSnapshot(collection(db,"zargonData"), (snapshot)=>{
+  tbody.innerHTML="";
+  let i=1;
 
-if(editIndex!==null){
-data[editIndex]=item;
-editIndex=null;
-addBtn.innerText="Add";
-}else{
-data.push(item);
-}
+  snapshot.forEach((docSnap)=>{
+    let d = docSnap.data();
 
-localStorage.setItem("zargonData",JSON.stringify(data));
-render();
-clearFields();
-}
-
-function render(){
-tbody.innerHTML="";
-data.forEach((d,i)=>{
-tbody.innerHTML+=`
-<tr>
-<td>${i+1}</td>
-<td>${d.date}</td>
-<td>${d.cycle}</td>
-<td>${d.code}</td>
-<td>${d.raw}</td>
-<td>${d.edit}</td>
-<td><span class="${d.editStatus==='Done'?'done':'pending'}">${d.editStatus}</span></td>
-<td><span class="${d.adsStatus==='Done'?'done':'pending'}">${d.adsStatus}</span></td>
-<td>
-<button class="action-btn edit" onclick="editData(${i})">Edit</button>
-<button class="action-btn delete" onclick="deleteData(${i})">Delete</button>
-</td>
-</tr>
-`;
+    tbody.innerHTML += `
+    <tr>
+      <td>${i++}</td>
+      <td>${d.date}</td>
+      <td>${d.cycle}</td>
+      <td>${d.code}</td>
+      <td>${d.raw}</td>
+      <td>${d.edit}</td>
+      <td><span class="${d.editStatus==='Done'?'done':'pending'}">${d.editStatus}</span></td>
+      <td><span class="${d.adsStatus==='Done'?'done':'pending'}">${d.adsStatus}</span></td>
+      <td>
+        <button class="action-btn edit" onclick="editData('${docSnap.id}')">Edit</button>
+        <button class="action-btn delete" onclick="deleteData('${docSnap.id}')">Delete</button>
+      </td>
+    </tr>
+    `;
+  });
 });
+
+/* ================= ADD / UPDATE ================= */
+
+window.addData = async function(){
+
+  if(!date.value || !cycle.value || !code.value){
+    alert("Please fill required fields");
+    return;
+  }
+
+  let item={
+    date:date.value,
+    cycle:cycle.value,
+    code:code.value,
+    raw:raw.value,
+    edit:edit.value,
+    editStatus:editStatus.value,
+    adsStatus:adsStatus.value
+  };
+
+  if(editId){
+    await updateDoc(doc(db,"zargonData",editId), item);
+    editId=null;
+    addBtn.innerText="Add";
+  }else{
+    await addDoc(collection(db,"zargonData"), item);
+  }
+
+  clearFields();
 }
 
-function editData(i){
-let d=data[i];
+/* ================= EDIT ================= */
 
-date.value=d.date;
-cycle.value=d.cycle;
-code.value=d.code;
-raw.value=d.raw;
-edit.value=d.edit;
-editStatus.value=d.editStatus;
-adsStatus.value=d.adsStatus;
-
-editIndex=i;
-addBtn.innerText="Update";
-window.scrollTo({top:0,behavior:'smooth'});
+window.editData = function(id){
+  editId=id;
+  addBtn.innerText="Update";
 }
 
-function deleteData(i){
-if(confirm("Are you sure to delete?")){
-data.splice(i,1);
-localStorage.setItem("zargonData",JSON.stringify(data));
-render();
+/* ================= DELETE ================= */
+
+window.deleteData = async function(id){
+  if(confirm("Are you sure to delete?")){
+    await deleteDoc(doc(db,"zargonData",id));
+  }
 }
-}
+
+/* ================= CLEAR ================= */
 
 function clearFields(){
-date.value="";
-cycle.value="";
-code.value="";
-raw.value="";
-edit.value="";
-editStatus.value="Done";
-adsStatus.value="Done";
-addBtn.innerText="Add";
-editIndex=null;
+  date.value="";
+  cycle.value="";
+  code.value="";
+  raw.value="";
+  edit.value="";
+  editStatus.value="Done";
+  adsStatus.value="Done";
+  addBtn.innerText="Add";
 }
 
-function searchData(){
-let val=search.value.toLowerCase();
-let rows=document.querySelectorAll("#tbody tr");
-rows.forEach(r=>{
-r.style.display=r.innerText.toLowerCase().includes(val)?"":"none";
-});
-}
-
-function exportExcel(){
-let csv="Date,Cycle,Code,Raw,Edit,Edit Status,Ads Status\n";
-data.forEach(d=>{
-csv+=`${d.date},${d.cycle},${d.code},${d.raw},${d.edit},${d.editStatus},${d.adsStatus}\n`;
-});
-let blob=new Blob([csv],{type:"text/csv"});
-let link=document.createElement("a");
-link.href=URL.createObjectURL(blob);
-link.download="zargon-data.csv";
-link.click();
-}
 </script>
-
-</body>
-</html>
